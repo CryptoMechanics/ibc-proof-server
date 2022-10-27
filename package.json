@@ -1,0 +1,27 @@
+{
+  "name": "ibc-proof-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "0rigin.one",
+  "license": "ISC",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.7.3",
+    "@grpc/proto-loader": "^0.7.2",
+    "axios": "^0.27.2",
+    "dotenv": "^16.0.1",
+    "eosjs": "^22.1.0",
+    "eosjs-account-name": "^2.2.1",
+    "hex64": "^0.4.0",
+    "int64-buffer": "^1.0.1",
+    "protobufjs": "^6.10.2",
+    "ws": "^8.8.0"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.6",
+    "utf-8-validate": "^5.0.9"
+  }
+}
