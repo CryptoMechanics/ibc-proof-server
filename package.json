@@ -2,9 +2,11 @@
   "name": "ibc-proof-server",
   "version": "1.0.0",
   "description": "",
+  "bin": "index.js",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "build": "pkg ."
   },
   "author": "0rigin.one",
   "license": "ISC",
@@ -23,5 +25,8 @@
   "optionalDependencies": {
     "bufferutil": "^4.0.6",
     "utf-8-validate": "^5.0.9"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.0"
   }
 }
