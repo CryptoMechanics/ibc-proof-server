@@ -1,6 +1,6 @@
 const runningStreams = [];
-const firehoseMinBlock = parseInt(process.env.firehoseMinBlock);
-const grpcAddress = process.env.grpcAddress;
+const firehoseMinBlock = parseInt(process.env.FIREHOSE_MIN_BLOCK);
+const grpcAddress = process.env.GRPC_ADDRESS;
 const protoLoader = require("@grpc/proto-loader");
 const hex64 = require('hex64');
 const grpc = require("@grpc/grpc-js");
@@ -9,7 +9,7 @@ const ProtoBuf = require("protobufjs");
 const loadProto = package =>  ProtoBuf.loadSync( path.resolve(__dirname, "proto", package));
 const axios = require("axios");
 
-console.log("nodeosApi", process.env.nodeosApi);
+console.log("nodeosApi", process.env.NODEOS_API);
 console.log("grpcAddress",grpcAddress);
 
 const eosioProto = loadProto("dfuse/eosio/codec/v1/codec.proto")
@@ -22,7 +22,7 @@ const sleep = s => new Promise(resolve=>setTimeout(resolve, s*1000));
 
 const getFirehoseClient = () => new bstreamService.BlockStreamV2(
   grpcAddress,
-  process.env.grpcInsecure=='true' ? grpc.credentials.createInsecure(): grpc.credentials.createSsl(), {
+  process.env.GRPC_INSECURE=='true' ? grpc.credentials.createInsecure(): grpc.credentials.createSsl(), {
     "grpc.max_receive_message_length": 1024 * 1024 * 100,
     "grpc.max_send_message_length": 1024 * 1024 * 100,
     "grpc.enable_retries": true
@@ -111,17 +111,17 @@ function checkValidBlockRange(blockNum){
   return new Promise(async resolve=>{
     try{
       blockNum = parseInt(blockNum);
-      const headBlock = (await axios(`${process.env.nodeosApi}/v1/chain/get_info`)).data.head_block_num;
+      const headBlock = (await axios(`${process.env.NODEOS_API}/v1/chain/get_info`)).data.head_block_num;
       if (blockNum < firehoseMinBlock || blockNum > headBlock+350){
         resolve({
           available: false,
-          error:  `Attempting to prove a block that is outside available range in firehose (${firehoseMinBlock} -> ${headBlock} )` 
+          error:  `Attempting to prove a block that is outside available range in firehose (${firehoseMinBlock} -> ${headBlock} )`
         });
       } else resolve({ available: true })
     }catch(ex){
       resolve({
         available: false,
-        error:  `Error fetching headinfo from mindreader while checking block #${blockNum}` 
+        error:  `Error fetching headinfo from mindreader while checking block #${blockNum}`
       });
     }
   })
@@ -130,9 +130,9 @@ function checkValidBlockRange(blockNum){
 // async function handleGetBlockRange(msgObj, ws){
 //   const response = { type: "blockRange", query : msgObj }
 //   try{
-//     const headBlock = (await axios(`${ process.env.nodeosApi}/v1/chain/get_info`)).data.head_block_num;
+//     const headBlock = (await axios(`${ process.env.NODEOS_API}/v1/chain/get_info`)).data.head_block_num;
 //     response.start = firehoseMinBlock,
-//     response.stop = headBlock 
+//     response.stop = headBlock
 //   }catch(ex){ response.error = "Can't fetch head block from mindreader" };
 //   ws.send(JSON.stringify(response));
 // }
@@ -155,12 +155,12 @@ function preprocessFirehoseBlock(obj, keepTraces){
 
   resp_obj.merkle_tree.active_nodes = hexNodes;
   resp_obj.merkle_tree.node_count = resp_obj.merkle_tree.nodeCount;
-  
+
   //resp_obj.header.previous = hex64.toHex(resp_obj.header.previous);
 
   resp_obj.header.transaction_mroot = hex64.toHex(resp_obj.header.transactionMroot);
   resp_obj.header.action_mroot = hex64.toHex(resp_obj.header.actionMroot);
-  
+
   resp_obj.header.confirmed = resp_obj.header.confirmed ? resp_obj.header.confirmed : 0;
   resp_obj.header.schedule_version = resp_obj.header.scheduleVersion;
 
@@ -170,14 +170,14 @@ function preprocessFirehoseBlock(obj, keepTraces){
 
     for (var pr of resp_obj.header.newProducersV1.producers)
       producers.push({ producer_name: pr.accountName, block_signing_key: pr.blockSigningKey})
-    
+
     resp_obj.header.new_producers = {
       version: resp_obj.header.newProducersV1.version,
       producers
     }
   }
   else resp_obj.header.new_producers = resp_obj.header.newProducers ? resp_obj.header.newProducers : null;
-  
+
 //resp_obj.header.header_extensions = resp_obj.header.headerExtensions ? resp_obj.header.headerExtensions : [];
   if (resp_obj.header.headerExtensions){
     const extensions = [];
@@ -189,7 +189,7 @@ function preprocessFirehoseBlock(obj, keepTraces){
     }
 
     resp_obj.header.header_extensions = extensions;
-  } 
+  }
   else resp_obj.header.header_extensions = [];
 
   delete resp_obj.merkle_tree.activeNodes;
@@ -234,14 +234,14 @@ function formatBFTHeader(header){
 }
 
 function formatBFTBlock(number, block){
- 
+
   //handle eosio 1.x
   if (block.header.newProducersV1){
     let producers = [];
 
     for (var pr of block.header.newProducersV1.producers)
       producers.push({ producer_name: pr.accountName, block_signing_key: pr.blockSigningKey})
-    
+
     block.header.new_producers = {
       version: block.header.newProducersV1.version,
       producers
