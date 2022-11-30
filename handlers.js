@@ -13,8 +13,8 @@ const getHeavyProof = req => new Promise((resolve) => {
 
   const merkleTrees = [];
   let reversibleBlocks = [];
-  let uniqueProducers1 = []; 
-  let uniqueProducers2 = []; 
+  let uniqueProducers1 = [];
+  let uniqueProducers2 = [];
   let block_to_prove;
   let previous_block;
 
@@ -55,7 +55,7 @@ const getHeavyProof = req => new Promise((resolve) => {
 
       //NEW BLOCK object
       console.log("received : ", json_obj.block.number, " step : ", json_obj.step);
-      
+
       const block = {
         id : json_obj.block.id,
         header : json_obj.block.header,
@@ -67,14 +67,14 @@ const getHeavyProof = req => new Promise((resolve) => {
       var mt = JSON.parse(JSON.stringify(json_obj.block.blockrootMerkle));
       mt.id = json_obj.block.id;
       merkleTrees.push(mt);
-      
+
       //if block is signed by eosio
       if (json_obj.block.header.producer == "eosio") {
         console.log("Block signed by the eosio account found. Proving actions during bootstrapping not supported yet.\n");
         console.log("block : ", JSON.stringify(block, null, 2));
         stream.cancel();
         stopFlag = true;
-        return ws.send(JSON.stringify({type:"error", error: "Block signed by the eosio account found. Proving actions during bootstrapping not supported yet"})); 
+        return ws.send(JSON.stringify({type:"error", error: "Block signed by the eosio account found. Proving actions during bootstrapping not supported yet"}));
       }
 
       //if block is new
@@ -83,7 +83,7 @@ const getHeavyProof = req => new Promise((resolve) => {
         if (json_obj.block.number > 500 + req.firehoseOptions.start_block_num ) {
           stream.cancel();
           stopFlag = true;
-          return ws.send(JSON.stringify({type:"error", error: "Not enough producers at this block height, stream cancelled"})); 
+          return ws.send(JSON.stringify({type:"error", error: "Not enough producers at this block height, stream cancelled"}));
         }
         //if first block in request
         if (json_obj.block.number == req.firehoseOptions.start_block_num ){
@@ -96,11 +96,11 @@ const getHeavyProof = req => new Promise((resolve) => {
           block_to_prove = preprocessFirehoseBlock(json_obj, true);
           add = false;
         }
-        
+
         //if uniqueProducers1 threshold reached
         if (uniqueProducers1.length==threshold){
 
-          let producer; 
+          let producer;
 
           if (uniqueProducers2.length>0) producer = uniqueProducers2.find(prod => prod.name == block.header.producer);
           else if (uniqueProducers1[uniqueProducers1.length-1].name == block.header.producer) producer = block.header.producer;
@@ -137,7 +137,7 @@ const getHeavyProof = req => new Promise((resolve) => {
         for (var i; i<10;i++) console.log("UNDO");
 
         var prev_count = uniqueProducers1.length;
-        
+
         reversibleBlocks = reversibleBlocks.filter(data => data.number != json_obj.block.number);
         uniqueProducers1 = uniqueProducers1.filter(data => data.number != json_obj.block.number);
         uniqueProducers2 = uniqueProducers2.filter(data => data.number != json_obj.block.number);
@@ -153,7 +153,7 @@ const getHeavyProof = req => new Promise((resolve) => {
       for (var i; i<7;i++)  console.log("on_proof_complete");
       const proof = {
         blockproof:{
-          chain_id: process.env.chain_id,
+          chain_id: process.env.CHAIN_ID,
           blocktoprove:{
             block:{
               header: block_to_prove.header,
@@ -216,11 +216,11 @@ async function handleHeavyProof(msgObj, ws){
       bmproofPromises.push( getBmProof(btp, bftproof.block_num) );
       btp = bftproof.block_num;
     };
-    
+
     let bmproofpaths = await Promise.all(bmproofPromises);
 
     //get block_to_prove block ID
-    let blockID = (await axios.get(`${process.env.lightproofAPI}?blocks=${msgObj.block_to_prove}`)).data[0].id;
+    let blockID = (await axios.get(`${process.env.LIGHTPROOF_API}?blocks=${msgObj.block_to_prove}`)).data[0].id;
     //add bmproofpath to each bftproof
     response.proof.blockproof.bftproof.forEach((bftproof, i) => {
       bftproof.bmproofpath = bmproofpaths[i];
@@ -259,15 +259,15 @@ function handleLightProof(msgObj, ws){
     if(!checkBlock.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock.error }));
     let checkBlock2 = await checkValidBlockRange(msgObj.last_proven_block);
     if(!checkBlock2.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock2.error }));
-    
+
     var result = await Promise.all([ getIrreversibleBlock(msgObj.last_proven_block), getIrreversibleBlock(msgObj.block_to_prove) ]);
-    
+
     var last_proven_block = preprocessFirehoseBlock(result[0]);
     var block_to_prove = preprocessFirehoseBlock(result[1]);
 
     var proof = {
       blockproof : {
-        chain_id : process.env.chain_id,
+        chain_id : process.env.CHAIN_ID,
         header : block_to_prove.header,
         root: last_proven_block.merkle_tree.active_nodes[last_proven_block.merkle_tree.active_nodes.length-1],
         bmproofpath : await getBmProof(msgObj.block_to_prove, msgObj.last_proven_block)
@@ -290,7 +290,7 @@ async function handleGetBlockActions(msgObj, ws){
     console.log("handleGetBlockActions", msgObj.block_to_prove);
     let checkBlock = await checkValidBlockRange(msgObj.block_to_prove);
     if(!checkBlock.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock.error }));
-    
+
     const txs = (await getIrreversibleBlock(msgObj.block_to_prove)).block.unfilteredTransactionTraces.map(r=> r.actionTraces );
 
     //Add action receipt digest and convert action rawData to hex

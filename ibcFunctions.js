@@ -37,7 +37,7 @@ function getBmProof(block_to_prove, last_proven_block ){
       block_num = Math.min(block_num, last_proven_block-1);
       blocksTofetch.push(block_num);
     }
-    let result = (await axios(`${process.env.lightproofAPI}?blocks=${blocksTofetch.join(',')}`)).data;
+    let result = (await axios(`${process.env.LIGHTPROOF_API}?blocks=${blocksTofetch.join(',')}`)).data;
     let bmproof = [];
 
     for (var i = 0 ; i < result.length;i++){

@@ -1,7 +1,7 @@
 require('dotenv').config(); 
 //create websocket server
 const WebSocketServer = require('ws');
-const websocketPort = process.env.port;
+const websocketPort = process.env.PORT;
 
 //import websocket message handlers
 const { handleHeavyProof, handleLightProof, handleGetBlockActions } = require("./handlers");
