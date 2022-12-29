@@ -263,7 +263,7 @@ function handleLightProof(msgObj, ws){
     var result = await Promise.all([ getIrreversibleBlock(msgObj.last_proven_block), getIrreversibleBlock(msgObj.block_to_prove) ]);
 
     var last_proven_block = preprocessFirehoseBlock(result[0]);
-    var block_to_prove = preprocessFirehoseBlock(result[1]);
+    var block_to_prove = preprocessFirehoseBlock(result[1], true);
 
     var proof = {
       blockproof : {
