@@ -1,7 +1,3 @@
-# NOTE : This repository is no longer maintained. New repository is https://github.com/CryptoMechanics/ibc-proof-server
-
----
-
 # ibc-proof-server
 
 ibc-proof-server generates and serves heavy and light proofs for actions and schedules. Currently only firehose is supported.
