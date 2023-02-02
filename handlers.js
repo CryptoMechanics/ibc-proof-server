@@ -311,8 +311,18 @@ async function handleGetBlockActions(msgObj, ws){
   }
 }
 
+async function handleGetDbStatus(ws){
+  axios(`${process.env.LIGHTPROOF_API}/status`).then(res=>{
+    ws.send(JSON.stringify({ type: "getDbStatus", data:res.data}));
+  }).catch(ex=>{
+    console.log("ex getting db status", ex.response.status, ex.response.statusText)
+    ws.send(JSON.stringify({ type: "getDbStatus", data:{error:"Error getting DB status, contact admin"}}));
+  });
+}
+
 module.exports = {
   handleLightProof,
   handleHeavyProof,
   handleGetBlockActions,
+  handleGetDbStatus
 }

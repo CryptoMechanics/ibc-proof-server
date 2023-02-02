@@ -4,7 +4,7 @@ const WebSocketServer = require('ws');
 const websocketPort = process.env.PORT;
 
 //import websocket message handlers
-const { handleHeavyProof, handleLightProof, handleGetBlockActions } = require("./handlers");
+const { handleHeavyProof, handleLightProof, handleGetBlockActions, handleGetDbStatus } = require("./handlers");
 
 const { closeClientStreams } = require("./firehoseFunctions");
 
@@ -19,16 +19,19 @@ const main = async ()=> {
     console.log("new ws connected");
 
     ws.on("message", async (message) => {
-      console.log("message",message.toString());
-      let supportedTypes = ['lightProof', 'heavyProof', 'getBlockActions'];
+      let supportedTypes = ['lightProof', 'heavyProof', 'getBlockActions', 'getDbStatus'];
       //ensure message is in the right format
       let msgObj;
       try{ msgObj = JSON.parse(message.toString())}
       catch(ex){ return ws.send(JSON.stringify({ type:"error", error: "Message needs to be a stringified object" })); }
-      
+      //handle unsupported type
       if (!supportedTypes.includes(msgObj.type)) return ws.send(JSON.stringify({ type:"error", error: "Message needs to include request types:" + supportedTypes.join(',') }));
-      if(isNaN(msgObj.block_to_prove)) return ws.send(JSON.stringify({ type:"error", error: "Must supply block_to_prove number"  }));
+      //handle getDbStatus
+      if (msgObj.type == "getDbStatus") return handleGetDbStatus(ws);
       
+      if(isNaN(msgObj.block_to_prove)) return ws.send(JSON.stringify({ type:"error", error: "Must supply block_to_prove number"  }));
+
+      console.log("message",message.toString());
       //handle request according to type
       if (msgObj.type == "lightProof") {
         if(isNaN(msgObj.last_proven_block)) return ws.send(JSON.stringify({ type:"error", error: "Must supply last_proven_block number"  }));
