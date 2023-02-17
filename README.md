@@ -23,8 +23,6 @@ PORT=7788                                    #host port to use for http (consume
 LIGHTPROOF_API=http://localhost::8285        #lightproof-db endpoint
 GRPC_ADDRESS=eos.firehose.eosnation.io:9000  #GRPC address of firehose service (ideally on local network/machine)
 GRPC_INSECURE=false                          #set to true if connecting to insecure GRPC service (vs TLS)
-FIREHOSE_MIN_BLOCK=0                         #lowest block available in firehose
-NODEOS_API=https://eos.api.eosnation.io      #regular nodeos api (/v1/chain/)
 CHAIN_ID="aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906"
 ```
 

@@ -4,6 +4,8 @@ const types = createInitialTypes();
 const crypto = require("crypto");
 const hex64 = require('hex64');
 const axios = require("axios");
+const historyProvider = process.env.HISTORY_PROVIDER;
+
 
 const eosjsTypes = {
   name: types.get("name"), 
@@ -25,6 +27,47 @@ function getActionProof(block_to_prove, requested_action_receipt_digest){
   };
 }
 
+function getReceiptDigests(block_to_prove, action_receipt_digest){
+  if (historyProvider === 'firehose') return getFirehoseReceiptDigests(block_to_prove, action_receipt_digest);
+  else if (historyProvider === 'ship') return getShipReceiptDigests(block_to_prove, action_receipt_digest);
+}
+
+function getShipReceiptDigests(block_to_prove, action_receipt_digest){
+  let action_return_value;
+  var action_receipt_digests = [];
+  var traces = block_to_prove.traces;
+  for (trace of traces){
+    var receipt_digest = getReceiptDigest(trace.receipt[1]);
+    //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
+    if (receipt_digest === action_receipt_digest && trace.return_value) action_return_value = trace.return_value.toString()
+    action_receipt_digests.push(receipt_digest);
+  }
+  return { action_receipt_digests, action_return_value };
+}
+
+function getFirehoseReceiptDigests(block_to_prove, action_receipt_digest){
+  let action_return_value;
+  var action_receipt_digests = [];
+
+  var transactions = block_to_prove.unfilteredTransactionTraces.map(item => item.actionTraces);
+
+  for (traces of transactions){
+    for (trace of traces){
+      trace.action.rawData = hex64.toHex(trace.action.rawData);
+      var receipt_digest = getReceiptDigest(trace.receipt);
+      //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
+      if (receipt_digest === action_receipt_digest && trace.returnValue) action_return_value = hex64.toHex(trace.returnValue)
+      action_receipt_digests.push(receipt_digest);
+    }
+  }
+  // var action_receipt_digests_clone = JSON.parse(JSON.stringify(action_receipt_digests));
+  // // console.log("action_receipt_digests : ", JSON.stringify(action_receipt_digests, null, 2));
+
+  // var actionMerkleRoot = merkle(action_receipt_digests_clone);
+  // // console.log("actionMerkleRoot : ", actionMerkleRoot);
+
+  return { action_receipt_digests, action_return_value };
+}
 function getBmProof(block_to_prove, last_proven_block ){
   return new Promise(async resolve=>{
     const blocksTofetch = [];
@@ -37,11 +80,20 @@ function getBmProof(block_to_prove, last_proven_block ){
       block_num = Math.min(block_num, last_proven_block-1);
       blocksTofetch.push(block_num);
     }
-    let result = (await axios(`${process.env.LIGHTPROOF_API}?blocks=${blocksTofetch.join(',')}`)).data;
+
+    const uniqueList = [];
+    for (var num of blocksTofetch) if (!uniqueList.includes(num)) uniqueList.push(num);
+
+    let result = (await axios(`${process.env.LIGHTPROOF_API}?blocks=${uniqueList.join(',')}`)).data;
     let bmproof = [];
 
-    for (var i = 0 ; i < result.length;i++){
-      const block = result[i];
+
+    for (var i = 0 ; i < blocksTofetch.length;i++){
+      const block = result.find(r=>r.num === blocksTofetch[i]);
+      if(!block){
+        console.log("Error, block not found!",  blocksTofetch[i]);
+        process.exit();
+      }
       const path = i == 0 && (block_to_prove - 1) % 2 == 0 ? 1 :
                    i == 0 && (block_to_prove - 1) % 2 != 0 ? 2 :
                    proofPath[i].pairIndex % 2 == 0 ? 3 :
@@ -249,47 +301,21 @@ function getProofPath (index, nodes_count) {
 }
 
 //Digests
-function getReceiptDigests(block_to_prove, action_receipt_digest){
-  let action_return_value;
-  var action_receipt_digests = [];
 
-  var transactions = block_to_prove.unfilteredTransactionTraces.map(item => item.actionTraces);
-
-  for (traces of transactions){
-    for (trace of traces){
-    
-      trace.action.rawData = hex64.toHex(trace.action.rawData);
-      // console.log("Action : ", trace.action);
-
-      var receipt_digest = getReceiptDigest(trace.receipt);
-
-      //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
-      if (receipt_digest === action_receipt_digest && trace.returnValue) action_return_value = hex64.toHex(trace.returnValue)
-      action_receipt_digests.push(receipt_digest);
-    }
-  }
-
-  var action_receipt_digests_clone = JSON.parse(JSON.stringify(action_receipt_digests));
-  // console.log("action_receipt_digests : ", JSON.stringify(action_receipt_digests, null, 2));
-
-  var actionMerkleRoot = merkle(action_receipt_digests_clone);
-  // console.log("actionMerkleRoot : ", actionMerkleRoot);
-
-  return { action_receipt_digests, action_return_value };
-}
 
 function getReceiptDigest(receipt){
-  // console.log("getReceiptDigest receipt", receipt);
   const { name, uint8, uint64,varuint32, checksum256  } = eosjsTypes;
-
   const buffer = new SerialBuffer({ TextEncoder, TextDecoder });
 
-  //handle different formats of receipt for dfuse (camelCase) and nodeos
+  //handle different formats of receipt for dfuse (camelCase) / nodeos / SHIP
   //if receipt is in nodeos format, convert to dfuse format
   if (receipt.act_digest && !receipt.digest){
     
     let authSequence = [];
-    for (var auth of receipt.auth_sequence) authSequence.push({ accountName: auth[0], sequence: auth[1] })
+    for (var auth of receipt.auth_sequence) {
+      if(auth[1]) authSequence.push({ accountName: auth[0], sequence: auth[1] })
+      else authSequence.push({ accountName: auth.account, sequence: auth.sequence }) //handle SHIP
+    }
 
     receipt = {
       receiver: receipt.receiver,
@@ -300,11 +326,7 @@ function getReceiptDigest(receipt){
       codeSequence: receipt.code_sequence,
       abiSequence: receipt.abi_sequence,
     }
-
-    // console.log("converted receipt", receipt)
   }
-  // console.log("getReceiptDigest receipt", receipt);
-
   name.serialize(buffer, receipt.receiver);
   checksum256.serialize(buffer, receipt.digest);
   uint64.serialize(buffer, receipt.globalSequence);
@@ -329,7 +351,6 @@ function getReceiptDigest(receipt){
 }
 
 function compressProof(obj){
-  console.log("compressProof");
   const newObj = JSON.parse(JSON.stringify(obj));
   const hashes = [];
   let totalHashes = 0;

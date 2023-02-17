@@ -30,7 +30,7 @@ const main = async ()=> {
       if (msgObj.type == "getDbStatus") return handleGetDbStatus(ws);
       
       if(isNaN(msgObj.block_to_prove)) return ws.send(JSON.stringify({ type:"error", error: "Must supply block_to_prove number"  }));
-
+      console.log("#####################################################")
       console.log("message",message.toString());
       //handle request according to type
       if (msgObj.type == "lightProof") {
@@ -39,7 +39,6 @@ const main = async ()=> {
       }
       else if (msgObj.type == "heavyProof") handleHeavyProof(msgObj, ws);
       else if (msgObj.type == "getBlockActions") handleGetBlockActions(msgObj, ws);
-      // else if (msgObj.type == "getBlockRange") handleGetBlockRange(msgObj,ws);
     });
 
     //find and close existing firehose streams if socket client disconnects
