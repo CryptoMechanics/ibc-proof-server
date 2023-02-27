@@ -83,10 +83,15 @@ function handleLightProof(msgObj, ws){
     console.log(msgObj);
 
     let checkBlock = await checkValidBlockRange(msgObj.block_to_prove);
-    if(!checkBlock.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock.error }));
     let checkBlock2 = await checkValidBlockRange(msgObj.last_proven_block);
-    if(!checkBlock2.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock2.error }));
 
+    if (!checkBlock.available){
+      console.log("Block is not in valid range")
+      if(!checkBlock.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock.error }));
+      if(!checkBlock2.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock2.error }));
+    }
+
+    console.log("passed valid block check")
     var result = await getIrreversibleBlock(msgObj.block_to_prove);
     var block_to_prove = preprocessBlock(result, true);
 
@@ -163,7 +168,7 @@ function checkValidBlockRange(blockNum){
     }catch(ex){
       resolve({
         available: false,
-        error:  `Error fetchingstatus of lightproof`
+        error:  `Error fetching status of lightproof`
       });
     }
   })

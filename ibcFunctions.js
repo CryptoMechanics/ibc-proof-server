@@ -35,12 +35,14 @@ function getReceiptDigests(block_to_prove, action_receipt_digest){
 function getShipReceiptDigests(block_to_prove, action_receipt_digest){
   let action_return_value;
   var action_receipt_digests = [];
-  var traces = block_to_prove.traces;
-  for (trace of traces){
-    var receipt_digest = getReceiptDigest(trace.receipt[1]);
-    //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
-    if (receipt_digest === action_receipt_digest && trace.return_value) action_return_value = trace.return_value.toString()
-    action_receipt_digests.push(receipt_digest);
+  var transactions = block_to_prove.transactions;
+  for (traces of transactions){
+    for (trace of traces.action_traces.sort((a,b)=> a.receipt.global_sequence > b.receipt.global_sequence? 1 :-1)){
+      var receipt_digest = getReceiptDigest(trace.receipt);
+      //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
+      if (receipt_digest === action_receipt_digest && trace.return_value) action_return_value = trace.return_value.toString()
+      action_receipt_digests.push(receipt_digest);
+    }
   }
   return { action_receipt_digests, action_return_value };
 }

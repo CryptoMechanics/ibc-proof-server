@@ -9,7 +9,7 @@ const loadProto = package =>  ProtoBuf.loadSync( path.resolve(__dirname, "proto"
 const eosioProto = loadProto("dfuse/eosio/codec/v1/codec.proto")
 const bstreamService = loadGrpcPackageDefinition("dfuse/bstream/v1/bstream.proto").dfuse.bstream.v1
 const eosioBlockMsg = eosioProto.root.lookupType("dfuse.eosio.codec.v1.Block")
-
+const { getActionProof } = require("./ibcFunctions")
 const sleep = s => new Promise(resolve=>setTimeout(resolve, s*1000));
 
 const getFirehoseClient = () => new bstreamService.BlockStreamV2(

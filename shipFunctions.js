@@ -1,4 +1,5 @@
 const SHIP = require('./ship');
+const { getActionProof } = require("./ibcFunctions")
 const axios = require('axios');
 //Digest
 const getShipIrreversibleBlock = async start_block_num =>{
@@ -64,8 +65,25 @@ const getShipHeavyProof = req => new Promise((resolve) => {
         header : json_obj.header,
         // merkle : blockrootMerkle,
         traces : json_obj.traces,
+
+        transactions : json_obj.transactions,
         producer_signatures : [json_obj.producer_signature]
       }
+
+      //format ship header
+      let header = {};
+   
+      header.timestamp = block.header.timestamp;
+      header.producer = block.header.producer;
+      header.confirmed = block.header.confirmed;
+      header.previous = block.header.previous.toLowerCase();
+      header.transaction_mroot = block.header.transaction_mroot.toLowerCase();
+      header.action_mroot = block.header.action_mroot.toLowerCase();
+      header.schedule_version = block.header.schedule_version;
+      header.new_producers = block.header.new_producers;
+      header.header_extensions = block.header.header_extensions;
+
+      block.header = header;
 
       //if block is signed by eosio
       if (block.header.producer == "eosio") {
@@ -103,14 +121,14 @@ const getShipHeavyProof = req => new Promise((resolve) => {
       //if first block in request
       if (block.number == req.firehoseOptions.start_block_num ){
         // previous_block = preprocessBlock(json_obj, false);
-        previous_block = json_obj;
+        previous_block = block;
         return add = false;
       }
 
       //if second block in request
       else if (block.number == req.firehoseOptions.start_block_num + 1){
         // block_to_prove = preprocessFirehoseBlock(json_obj, true);
-        block_to_prove = json_obj;
+        block_to_prove = block;
         add = false;
       }
 

@@ -57,7 +57,10 @@ const getTxs = res =>{
         delete act.action.data
         traces.push(act)
       }
+      //sort traces by global sequenece since SHIP doesnt sort them
+      traces.sort((a,b)=> a.receipt.global_sequence > b.receipt.global_sequence? 1 :-1);
       txs.push(traces)
+      
 
     }
     return txs;
