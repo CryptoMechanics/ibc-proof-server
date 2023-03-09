@@ -15,6 +15,7 @@
     "@grpc/proto-loader": "^0.7.2",
     "axios": "^0.27.2",
     "dotenv": "^16.0.1",
+    "enf-eosjs": "^23.0.0-rc4",
     "eosjs": "^22.1.0",
     "eosjs-account-name": "^2.2.1",
     "hex64": "^0.4.0",

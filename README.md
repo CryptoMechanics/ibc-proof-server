@@ -1,6 +1,6 @@
 # ibc-proof-server
 
-ibc-proof-server generates and serves heavy and light proofs for actions and schedules. Currently only firehose is supported.
+ibc-proof-server generates and serves heavy and light proofs for actions and schedules. Currently firehose and SHIP are supported.
 
 ## Instructions
 
@@ -9,6 +9,7 @@ ibc-proof-server generates and serves heavy and light proofs for actions and sch
 ```
 git clone https://github.com/eostitan/ibc-proof-server.git
 cd ibc-proof-server
+git checkout v2
 npm install
 ```
 
@@ -19,13 +20,24 @@ npm install
 - edit the `.env` file variables with the desired chain parameters
 
 ```
-PORT=7788                                    #host port to use for http (consumed by ibc-proof-server)
-LIGHTPROOF_API=http://localhost::8285        #lightproof-db endpoint
-GRPC_ADDRESS=eos.firehose.eosnation.io:9000  #GRPC address of firehose service (ideally on local network/machine)
-GRPC_INSECURE=false                          #set to true if connecting to insecure GRPC service (vs TLS)
-FIREHOSE_MIN_BLOCK=0                         #lowest block available in firehose
-NODEOS_API=https://eos.api.eosnation.io      #regular nodeos api (/v1/chain/)
+#host port to use for ibc-proof-server websocket
+PORT=7788
+
+#chain id of the chain that ibc-proof-server provides proofs for
 CHAIN_ID="aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906"
+
+# lightproof-db endpoint                                    
+LIGHTPROOF_API=http://localhost:8285   
+
+# The history provider to fetch from (firehose/ship) 
+HISTORY_PROVIDER=ship
+
+#firehose history provider config
+GRPC_ADDRESS=eos.firehose.eosnation.io:9000                 
+GRPC_INSECURE=false     
+
+#ship history provider config
+SHIP_WS=ws://192.168.86.41:8080
 ```
 
 
