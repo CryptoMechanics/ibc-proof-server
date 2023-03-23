@@ -4,6 +4,7 @@ const axios = require("axios");
 const { getIrreversibleBlock, preprocessBlock, getHeavyProof, getTxs } = require("./abstract")
 const { getActionProof, getBmProof, verify, compressProof, getReceiptDigest } = require("./ibcFunctions")
 const crypto = require("crypto");
+const historyProvider = process.env.HISTORY_PROVIDER;
 
 //Websocket handlers
 async function handleHeavyProof(msgObj, ws){
@@ -16,7 +17,8 @@ async function handleHeavyProof(msgObj, ws){
     const req_block_to_prove = {
       firehoseOptions : { start_block_num, include_filter_expr: "", fork_steps: ["STEP_NEW", "STEP_UNDO"] },
       action_receipt_digest: msgObj.action_receipt ? getReceiptDigest(msgObj.action_receipt) : msgObj.action_receipt_digest,
-      ws
+      ws,
+      block_num:start_block_num
     }
 
     const response = {
@@ -91,7 +93,6 @@ function handleLightProof(msgObj, ws){
       if(!checkBlock2.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock2.error }));
     }
 
-    console.log("passed valid block check")
     var result = await getIrreversibleBlock(msgObj.block_to_prove);
     var block_to_prove = preprocessBlock(result, true);
 
@@ -105,7 +106,11 @@ function handleLightProof(msgObj, ws){
 
     if (msgObj.action_receipt || msgObj.action_receipt_digest){
       if (msgObj.action_receipt) msgObj.action_receipt_digest = getReceiptDigest(msgObj.action_receipt);
-      proof.actionproof = getActionProof(block_to_prove, msgObj.action_receipt_digest)
+      if (historyProvider==='greymass') {
+        const transactions = await getTxs(block_to_prove);
+        proof.actionproof = getActionProof({transactions, block_num: block_to_prove.block_num}, msgObj.action_receipt_digest)
+      }
+      else proof.actionproof = getActionProof(block_to_prove, msgObj.action_receipt_digest)
     }
     
     let blockID = (await axios.get(`${process.env.LIGHTPROOF_API}?blocks=${msgObj.block_to_prove}`)).data[0].id;
@@ -131,11 +136,11 @@ function handleLightProof(msgObj, ws){
 async function handleGetBlockActions(msgObj, ws){
   try {
     console.log("handleGetBlockActions", msgObj.block_to_prove);
-    let checkBlock = await checkValidBlockRange(msgObj.block_to_prove);
-    if(!checkBlock.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock.error }));
+    // let checkBlock = await checkValidBlockRange(msgObj.block_to_prove);
+    // if(!checkBlock.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock.error }));
 
     const res = await getIrreversibleBlock(msgObj.block_to_prove);
-    const txs = getTxs(res);
+    const txs = await getTxs(res.data);
 
     console.log("handleGetBlockActions finished", msgObj.block_to_prove)
     ws.send(JSON.stringify({ type: "getBlockActions", query : msgObj, txs }));

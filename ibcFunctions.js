@@ -6,7 +6,6 @@ const hex64 = require('hex64');
 const axios = require("axios");
 const historyProvider = process.env.HISTORY_PROVIDER;
 
-
 const eosjsTypes = {
   name: types.get("name"), 
   bytes: types.get("bytes"), 
@@ -17,6 +16,22 @@ const eosjsTypes = {
   varuint32: types.get("varuint32"), 
   checksum256: types.get("checksum256")
 }
+const { name, uint8, uint64,varuint32, checksum256, bytes  } = eosjsTypes;
+
+const nameToUint64 = (s) => {
+  let n = 0n;
+  let i = 0;
+  for (; i < 12 && s[i]; i++)  n |= BigInt(char_to_symbol(s.charCodeAt(i)) & 0x1f) << BigInt(64 - 5 * (i + 1));
+  if (i == 12)  n |= BigInt(char_to_symbol(s.charCodeAt(i)) & 0x0f);
+  return n.toString();
+};
+
+const char_to_symbol = c => {
+  if (typeof c == 'string') c = c.charCodeAt(0);
+  if (c >= 'a'.charCodeAt(0) && c <= 'z'.charCodeAt(0)) return c - 'a'.charCodeAt(0) + 6;
+  if (c >= '1'.charCodeAt(0) && c <= '5'.charCodeAt(0)) return c - '1'.charCodeAt(0) + 1;
+  return 0;
+};
 
 function getActionProof(block_to_prove, requested_action_receipt_digest){
   let { action_receipt_digests, action_return_value } = getReceiptDigests(block_to_prove, requested_action_receipt_digest);
@@ -30,6 +45,7 @@ function getActionProof(block_to_prove, requested_action_receipt_digest){
 function getReceiptDigests(block_to_prove, action_receipt_digest){
   if (historyProvider === 'firehose') return getFirehoseReceiptDigests(block_to_prove, action_receipt_digest);
   else if (historyProvider === 'ship') return getShipReceiptDigests(block_to_prove, action_receipt_digest);
+  else if (historyProvider === 'greymass') return getNodeosReceiptDigests(block_to_prove, action_receipt_digest);
 }
 
 function getShipReceiptDigests(block_to_prove, action_receipt_digest){
@@ -47,7 +63,21 @@ function getShipReceiptDigests(block_to_prove, action_receipt_digest){
   return { action_receipt_digests, action_return_value };
 }
 
-function getFirehoseReceiptDigests(block_to_prove, action_receipt_digest){
+function getNodeosReceiptDigests(block_to_prove, action_receipt_digest){
+  let action_return_value;
+  var action_receipt_digests = [];
+  for (traces of  block_to_prove.transactions){
+    for (trace of traces.sort((a,b)=> a.receipt.global_sequence > b.receipt.global_sequence? 1 :-1)){
+      //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
+      if (trace.action_receipt_digest === action_receipt_digest && trace.return_value) action_return_value = trace.return_value.toString()
+      action_receipt_digests.push(trace.action_receipt_digest );
+    }
+  }
+  
+  return { action_receipt_digests, action_return_value };
+}
+
+async function getFirehoseReceiptDigests(block_to_prove, action_receipt_digest){
   let action_return_value;
   var action_receipt_digests = [];
 
@@ -62,12 +92,6 @@ function getFirehoseReceiptDigests(block_to_prove, action_receipt_digest){
       action_receipt_digests.push(receipt_digest);
     }
   }
-  // var action_receipt_digests_clone = JSON.parse(JSON.stringify(action_receipt_digests));
-  // // console.log("action_receipt_digests : ", JSON.stringify(action_receipt_digests, null, 2));
-
-  // var actionMerkleRoot = merkle(action_receipt_digests_clone);
-  // // console.log("actionMerkleRoot : ", actionMerkleRoot);
-
   return { action_receipt_digests, action_return_value };
 }
 function getBmProof(block_to_prove, last_proven_block ){
@@ -306,18 +330,20 @@ function getProofPath (index, nodes_count) {
 
 
 function getReceiptDigest(receipt){
-  const { name, uint8, uint64,varuint32, checksum256  } = eosjsTypes;
   const buffer = new SerialBuffer({ TextEncoder, TextDecoder });
+
 
   //handle different formats of receipt for dfuse (camelCase) / nodeos / SHIP
   //if receipt is in nodeos format, convert to dfuse format
   if (receipt.act_digest && !receipt.digest){
-    
+
     let authSequence = [];
     for (var auth of receipt.auth_sequence) {
       if(auth[1]) authSequence.push({ accountName: auth[0], sequence: auth[1] })
       else authSequence.push({ accountName: auth.account, sequence: auth.sequence }) //handle SHIP
     }
+
+    if (authSequence.length>1) authSequence = authSequence.sort((a,b)=> a.accountName > b.accountName? 1 : a.accountName < b.accountName ? -1 : 0);
 
     receipt = {
       receiver: receipt.receiver,
@@ -350,6 +376,28 @@ function getReceiptDigest(receipt){
   else varuint32.serialize(buffer, 0);
 
   return crypto.createHash("sha256").update(buffer.asUint8Array()).digest("hex");
+}
+
+function getBaseActionDigest(a){
+  const buff = new SerialBuffer({ TextEncoder, TextDecoder });
+  
+  uint64.serialize(buff, nameToUint64(a.account));
+  uint64.serialize(buff, nameToUint64(a.name));
+  varuint32.serialize(buff, a.authorization.length);
+
+  for (var i = 0 ; i < a.authorization.length;i++){
+    uint64.serialize(buff, nameToUint64(a.authorization[i].actor));
+    uint64.serialize(buff, nameToUint64(a.authorization[i].permission));
+  }
+
+  return crypto.createHash("sha256").update(buff.asUint8Array()).digest("hex");
+}
+
+function getDataDigest(act, returnValue){
+  const buff = new SerialBuffer({ TextEncoder, TextDecoder });
+  bytes.serialize(buff, act.data);
+  bytes.serialize(buff, returnValue);
+  return crypto.createHash("sha256").update(buff.asUint8Array()).digest("hex");
 }
 
 function compressProof(obj){
@@ -452,5 +500,7 @@ module.exports = {
   getBmProof,
   verify,
   compressProof,
-  getReceiptDigest
+  getReceiptDigest,
+  getBaseActionDigest,
+  getDataDigest
 }
