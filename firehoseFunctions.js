@@ -215,7 +215,7 @@ function formatBFTBlock(number, block){
 
   if (!block.header.confirmed) block.header.confirmed = 0;
   if (!block.header.new_producers) block.header.new_producers = null;
-  if (!block.headerheaderExtensions) block.header.header_extensions = [];
+  if (!block.header.headerExtensions) block.header.header_extensions = [];
 
   block.header.timestamp = convertFirehoseDate(block.header.timestamp) ;
 
