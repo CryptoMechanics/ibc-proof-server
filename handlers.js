@@ -139,7 +139,7 @@ async function handleGetBlockActions(msgObj, ws){
     // let checkBlock = await checkValidBlockRange(msgObj.block_to_prove);
     // if(!checkBlock.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock.error }));
 
-    const res = await getIrreversibleBlock(msgObj.block_to_prove);
+    let res = await getIrreversibleBlock(msgObj.block_to_prove);
     if(res.data) res = res.data;
     const txs = await getTxs(res);
 
