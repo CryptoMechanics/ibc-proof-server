@@ -77,7 +77,7 @@ function getNodeosReceiptDigests(block_to_prove, action_receipt_digest){
   return { action_receipt_digests, action_return_value };
 }
 
-async function getFirehoseReceiptDigests(block_to_prove, action_receipt_digest){
+function getFirehoseReceiptDigests(block_to_prove, action_receipt_digest){
   let action_return_value;
   var action_receipt_digests = [];
 
