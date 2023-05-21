@@ -1,10 +1,14 @@
 
 const { SerialBuffer, createInitialTypes } = require("eosjs/dist/eosjs-serialize");
 const types = createInitialTypes();
-const crypto = require("crypto");
-const hex64 = require('hex64');
-const axios = require("axios");
+import * as crypto from "crypto";
+import hex64 from "hex64";
+import axios from "axios";
 const historyProvider = process.env.HISTORY_PROVIDER;
+
+var util= require('util');
+const TextEncoder = new util.TextEncoder();
+const TextDecoder = new util.TextDecoder();
 
 const eosjsTypes = {
   name: types.get("name"), 
@@ -52,8 +56,8 @@ function getShipReceiptDigests(block_to_prove, action_receipt_digest){
   let action_return_value;
   var action_receipt_digests = [];
   var transactions = block_to_prove.transactions;
-  for (traces of transactions){
-    for (trace of traces.action_traces.sort((a,b)=> a.receipt.global_sequence > b.receipt.global_sequence? 1 :-1)){
+  for (var traces of transactions){
+    for (var trace of traces.action_traces.sort((a,b)=> a.receipt.global_sequence > b.receipt.global_sequence? 1 :-1)){
       var receipt_digest = getReceiptDigest(trace.receipt);
       //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
       if (receipt_digest === action_receipt_digest && trace.return_value) action_return_value = trace.return_value.toString()
@@ -66,8 +70,8 @@ function getShipReceiptDigests(block_to_prove, action_receipt_digest){
 function getNodeosReceiptDigests(block_to_prove, action_receipt_digest){
   let action_return_value;
   var action_receipt_digests = [];
-  for (traces of  block_to_prove.transactions){
-    for (trace of traces.sort((a,b)=> a.receipt.global_sequence > b.receipt.global_sequence? 1 :-1)){
+  for (var traces of  block_to_prove.transactions){
+    for (var trace of traces.sort((a,b)=> a.receipt.global_sequence > b.receipt.global_sequence? 1 :-1)){
       //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
       if (trace.action_receipt_digest === action_receipt_digest && trace.return_value) action_return_value = trace.return_value.toString()
       action_receipt_digests.push(trace.action_receipt_digest );
@@ -83,8 +87,8 @@ function getFirehoseReceiptDigests(block_to_prove, action_receipt_digest){
 
   var transactions = block_to_prove.unfilteredTransactionTraces.map(item => item.actionTraces);
 
-  for (traces of transactions){
-    for (trace of traces){
+  for (var traces of transactions){
+    for (var trace of traces){
       trace.action.rawData = hex64.toHex(trace.action.rawData);
       var receipt_digest = getReceiptDigest(trace.receipt);
       //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
@@ -129,7 +133,8 @@ function getBmProof(block_to_prove, last_proven_block ){
       if ( path == 1 ) hash = block.id;
       else if ( path == 2 || path == 3 )  hash = block.nodes[0];
       else hash = append(block.id, block.nodes, block.num - 1, i).root;
-      hash = applyMask(hash, proofPath[i].isLeft).toString("hex");
+      // hash = applyMask(hash, proofPath[i].isLeft).toString("hex");
+      hash = applyMask(hash, proofPath[i].isLeft);
       bmproof.push(hash);
     }
     resolve(bmproof)
@@ -181,10 +186,12 @@ function merkle(ids) {
        
        var p = make_canonical_pair(ids[2 * i], ids[(2 * i) + 1]);
 
-       var buffLeft = Buffer.from(p.l, "hex")
-       var buffRight = Buffer.from(p.r, "hex")
+      //  var buffLeft = Buffer.from(p.l, "hex")
+      //  var buffRight = Buffer.from(p.r, "hex")
 
-       var buffFinal = Buffer.concat([buffLeft, buffRight]);
+      //  var buffFinal = Buffer.concat([buffLeft, buffRight]);
+
+       var buffFinal = Buffer.concat([p.l, p.r]);
 
        var finalHash = crypto.createHash("sha256").update(buffFinal).digest("hex");
 
@@ -202,7 +209,7 @@ function merkle(ids) {
 function createTree(leaves, mask = true){
 
   var n_leaves = JSON.parse(JSON.stringify(leaves));
-  var tree = { leaves, layers : [] }
+  var tree = { leaves, layers : [], root: null }
   var layer_index = 0 ;
 
   while (n_leaves.length>1){
@@ -495,7 +502,7 @@ function hashPair(p){
   return finalHash;
 }
 
-module.exports = {
+export {
   getActionProof,
   getBmProof,
   verify,

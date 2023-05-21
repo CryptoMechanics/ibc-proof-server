@@ -1,15 +1,23 @@
 const WebSocket = require('ws');
 const { Serialize } = require('enf-eosjs');
-
+import * as util from 'util';
+var zlib= require('zlib');
+const TextEncoder = new util.TextEncoder();
+const TextDecoder = new util.TextDecoder();
 class SHIP {
+
+  abi = null;
+  types = null;
+  blocksQueue = [];
+  inProcessBlocks = false;
+  currentArgs = null;
+  connectionRetries = 0;
+  maxConnectionRetries = 100;
+  cb = null;
+  ws = null;
+  rawabi = null;
+
   constructor(cb) {
-    this.abi = null;
-    this.types = null;
-    this.blocksQueue = [];
-    this.inProcessBlocks = false;
-    this.currentArgs = null;
-    this.connectionRetries = 0;
-    this.maxConnectionRetries = 100;
     this.cb = cb
   }
 
@@ -52,18 +60,18 @@ class SHIP {
     if (this.connectionRetries > this.maxConnectionRetries) return console.error(`Exceeded max reconnection attempts of ${this.maxConnectionRetries}`);
     const timeout = Math.pow(2, this.connectionRetries/5) * 1000;
     console.log(`Retrying with delay of ${timeout / 1000}s`);
-    setTimeout(() => { this.start(process.env.SHIP_WS); }, timeout);
+    setTimeout(() => { this.start(process.env.SHIP_WS, null); }, timeout);
     this.connectionRetries++;
   }
 
   serialize(type, value) {
-    const buffer = new Serialize.SerialBuffer({ textEncoder: new TextEncoder, textDecoder: new TextDecoder });
+    const buffer = new Serialize.SerialBuffer({ TextEncoder, TextDecoder });
     Serialize.getType(this.types, type).serialize(buffer, value);
     return buffer.asUint8Array();
   }
 
   deserialize(type, array) {
-    const buffer = new Serialize.SerialBuffer({ textEncoder: new TextEncoder, textDecoder: new TextDecoder, array });
+    const buffer = new Serialize.SerialBuffer({ TextEncoder, TextDecoder });
     return Serialize.getType(this.types, type).deserialize(buffer, new Serialize.SerializerState({ bytesAsUint8Array: true }));
   }
 

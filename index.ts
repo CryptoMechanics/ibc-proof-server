@@ -1,27 +1,34 @@
+import { WebSocketServer } from "ws";
+
 require('dotenv').config(); 
 //create websocket server
-const WebSocketServer = require('ws');
-const websocketPort = process.env.PORT;
+const websocketPort = parseInt(process.env.PORT);
 
 //import websocket message handlers
-const { handleHeavyProof, handleLightProof, handleGetBlockActions, handleGetDbStatus } = require("./handlers");
 
-const { closeClientStreams } = require("./firehoseFunctions");
+import { handleHeavyProof, handleLightProof, handleGetBlockActions, handleGetDbStatus } from "./handlers";
+import {closeClientStreams } from "./firehoseFunctions";
 
 //main process handling websocket connections
 const main = async ()=> {
   //initiate websocket server
-  const wss = new WebSocketServer.Server({ port: websocketPort });
+  const wss = new WebSocketServer({ port: websocketPort });
 
   //on new connection handler
-  wss.on("connection", (ws, req) => {
-    ws.id = req.headers['sec-websocket-key'];
+  wss.on("connection", ( ws, req) => {
+    let clientSocketId = req.headers['sec-websocket-key'];
     console.log("new ws connected");
 
-    ws.on("message", async (message) => {
+    ws.on("message", async (message: string) => {
       let supportedTypes = ['lightProof', 'heavyProof', 'getBlockActions', 'getDbStatus'];
       //ensure message is in the right format
-      let msgObj;
+      let msgObj:{
+        type: string,
+        block_to_prove: number,
+        last_proven_block?: number,
+        action_receipt_digest?: string,
+        action: any
+      };
       try{ msgObj = JSON.parse(message.toString())}
       catch(ex){ return ws.send(JSON.stringify({ type:"error", error: "Message needs to be a stringified object" })); }
       //handle unsupported type
@@ -44,15 +51,15 @@ const main = async ()=> {
     //find and close existing firehose streams if socket client disconnects
     ws.on("close", () => {
       console.log("the ws has disconnected");
-      closeClientStreams(ws.id);
+      closeClientStreams(clientSocketId);
     });
 
-    ws.onerror = function (e) { console.log("Error".e) }
+    ws.onerror = function (e: any ) { console.log("Error",e) }
   });
   console.log("Listening on", websocketPort)
 }
 
-var signals = {
+const signals: any = {
   'SIGHUP': 1,
   'SIGINT': 2,
   'SIGTERM': 15
@@ -71,7 +78,7 @@ main().catch(error => {
 });
 
 process.on("unhandledRejection", function (reason, p) {
-  let message = reason ? reason.stack : reason;
-  console.error(`Possibly Unhandled Rejection at: ${message}`);
+  // let message = reason ? reason.stack : reason;
+  console.error(`Possibly Unhandled Rejection at: ${reason}`);
   process.exit(1);
 });

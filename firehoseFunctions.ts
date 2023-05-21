@@ -1,16 +1,17 @@
-const runningStreams = [];
 const grpcAddress = process.env.GRPC_ADDRESS;
 const protoLoader = require("@grpc/proto-loader");
-const hex64 = require('hex64');
 const grpc = require("@grpc/grpc-js");
 const path = require("path");
 const ProtoBuf = require("protobufjs");
-const loadProto = package =>  ProtoBuf.loadSync( path.resolve(__dirname, "proto", package));
-const eosioProto = loadProto("dfuse/eosio/codec/v1/codec.proto")
+const eosioProto = ProtoBuf.loadSync( path.resolve(__dirname, "proto",  "dfuse/eosio/codec/v1/codec.proto"));
 const bstreamService = loadGrpcPackageDefinition("dfuse/bstream/v1/bstream.proto").dfuse.bstream.v1
-const eosioBlockMsg = eosioProto.root.lookupType("dfuse.eosio.codec.v1.Block")
-const { getActionProof } = require("./ibcFunctions")
-const sleep = s => new Promise(resolve=>setTimeout(resolve, s*1000));
+const eosioBlockMsg = eosioProto.root.lookupType("dfuse.eosio.codec.v1.Block");
+
+import hex64 from "hex64";
+import { Proof } from "./types";
+import  { getActionProof } from "./ibcFunctions";
+// const { getActionProof } = require("./ibcFunctions")
+function sleep (s:number){ return new Promise(resolve=>setTimeout(resolve, s*1000))};
 
 const getFirehoseClient = () => new bstreamService.BlockStreamV2(
   grpcAddress,
@@ -21,9 +22,11 @@ const getFirehoseClient = () => new bstreamService.BlockStreamV2(
   }
 );
 
-const pushRunningStream = obj => runningStreams.push(obj);
 
-const getFirehoseBlock = req => new Promise((resolve,reject) => {
+const runningStreams = [];
+function pushRunningStream (obj){ runningStreams.push(obj)}
+
+const getFirehoseBlock = (req) => new Promise((resolve,reject) => {
   if (!req.retries && req.retires!==0) req.retries = 10;
   const client = getFirehoseClient();
   let stream = client.Blocks(req.firehoseOptions)
@@ -104,7 +107,8 @@ function preprocessFirehoseBlock(obj, keepTraces){
     merkle_tree : obj.block.blockrootMerkle,
     header : obj.block.header,
     block_num :obj.block.number,
-    producer_signatures : [obj.block.producerSignature]
+    producer_signatures : [obj.block.producerSignature],
+    unfilteredTransactionTraces: null
   }
 
   if (keepTraces) resp_obj.unfilteredTransactionTraces = obj.block.unfilteredTransactionTraces;
@@ -175,9 +179,9 @@ const closeClientStreams = id => {
   console.log("Running streams", runningStreams.length)
 }
 
-function loadGrpcPackageDefinition(package) {
+function loadGrpcPackageDefinition(p) {
   const proto = protoLoader.loadSync(
-    path.resolve(__dirname, "proto", package),
+    path.resolve(__dirname, "proto", p),
     { keepCase: true, longs: String, enums: String, defaults: true, oneofs: true }
   )
   return grpc.loadPackageDefinition(proto)
@@ -236,7 +240,7 @@ function formatBFTBlock(number, block){
   return n_block;
 }
 
-const getFirehoseHeavyProof = req => new Promise((resolve) => {
+const getFirehoseHeavyProof = (req): Promise<Proof> => new Promise((resolve) => {
   //TODO check last lib from lightproof-db and if block to prove is over 500 blocks behind lib, get just irreversible blocks
 
   let threshold = 14; //TODO update based on # of bps in last schedule in ibc contract
@@ -269,7 +273,7 @@ const getFirehoseHeavyProof = req => new Promise((resolve) => {
     pushRunningStream({stream, id: ws.id})
 
     //handler for on_block event
-    async function on_block(json_obj){
+    const on_block = function (json_obj){
       if (stopFlag) return;
       let add = true;
       if (!json_obj.block) return;
@@ -377,9 +381,18 @@ const getFirehoseHeavyProof = req => new Promise((resolve) => {
     }
 
     //handler for on_proof_complete event
-    function on_proof_complete(data){
+    const on_proof_complete = function(data){
       console.log("\non_proof_complete\n");
-      const proof = {
+     
+
+      let bftproofs = [];
+      for (var row of data.reversibleBlocks){
+        var up1 = data.uniqueProducers1.find(item => item.number == row.number);
+        var up2 = data.uniqueProducers2.find(item => item.number == row.number);
+        if (up1 || up2) bftproofs.push( formatBFTBlock(row.number, row.block) );
+      }
+
+      const proof: Proof = {
         blockproof:{
           chain_id: process.env.CHAIN_ID,
           blocktoprove:{
@@ -393,23 +406,19 @@ const getFirehoseHeavyProof = req => new Promise((resolve) => {
             active_nodes: previous_block.merkle_tree.active_nodes,
             node_count: previous_block.merkle_tree.node_count
           },
-          bftproof: []
-        }
-      }
-
-      for (var row of data.reversibleBlocks){
-        var up1 = data.uniqueProducers1.find(item => item.number == row.number);
-        var up2 = data.uniqueProducers2.find(item => item.number == row.number);
-        if (up1 || up2) proof.blockproof.bftproof.push( formatBFTBlock(row.number, row.block) );
+          bftproof: bftproofs,
+        },
+        actionproof: null
       }
 
       if (req.action_receipt_digest) proof.actionproof = getActionProof(block_to_prove, req.action_receipt_digest);
+      else delete proof.actionproof;
+
       for (var tree of merkleTrees) for (var node of tree.activeNodes) node = hex64.toHex(node);
 
       //format timestamp in headers
       // for (var bftproof of proof.blockproof.bftproof) bftproof.header.timestamp = convertFirehoseDate(bftproof.header.timestamp) ;
       // proof.blockproof.blocktoprove.block.header.timestamp = convertFirehoseDate(proof.blockproof.blocktoprove.block.header.timestamp);
-
       resolve(proof);
     }
   }catch(ex){ console.log("getHeavyProof ex", ex) }
@@ -417,7 +426,7 @@ const getFirehoseHeavyProof = req => new Promise((resolve) => {
 
 
 
-module.exports = {
+export {
   getFirehoseClient,
   convertFirehoseDate,
   closeClientStreams,

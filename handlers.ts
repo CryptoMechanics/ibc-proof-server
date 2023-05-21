@@ -1,15 +1,12 @@
-const hex64 = require('hex64');
-const grpc = require("@grpc/grpc-js");
 const axios = require("axios");
-const { getIrreversibleBlock, preprocessBlock, getHeavyProof, getTxs } = require("./abstract")
-const { getActionProof, getBmProof, verify, compressProof, getReceiptDigest } = require("./ibcFunctions")
-const crypto = require("crypto");
+import { getIrreversibleBlock, preprocessBlock, getHeavyProof, getTxs } from "./abstract";
+import { getActionProof, getBmProof, verify, compressProof, getReceiptDigest } from "./ibcFunctions";
 const historyProvider = process.env.HISTORY_PROVIDER;
 
 //Websocket handlers
 async function handleHeavyProof(msgObj, ws){
   try {
-    const start_block_num  = msgObj.block_to_prove -1; //start at previous block of block that a user wants to prove
+    const start_block_num  = msgObj.block_to_prove - 1; //start at previous block of block that a user wants to prove
 
     let checkBlock = await checkValidBlockRange(start_block_num);
     if(!checkBlock.available) return ws.send(JSON.stringify({ type:"error", error: checkBlock.error }));
@@ -24,7 +21,7 @@ async function handleHeavyProof(msgObj, ws){
     const response = {
       type: "proof",
       query : msgObj,
-      proof: await getHeavyProof(req_block_to_prove),
+      proof : await getHeavyProof(req_block_to_prove),
       action_receipt_digest: req_block_to_prove.action_receipt_digest //required for issue & retire
     }
 
@@ -101,7 +98,8 @@ function handleLightProof(msgObj, ws){
         chain_id : process.env.CHAIN_ID,
         header : block_to_prove.header,
         bmproofpath : await getBmProof(msgObj.block_to_prove, msgObj.last_proven_block)
-      }
+      },
+      actionproof: null
     }
 
     if (msgObj.action_receipt || msgObj.action_receipt_digest){
@@ -112,6 +110,7 @@ function handleLightProof(msgObj, ws){
       }
       else proof.actionproof = getActionProof(block_to_prove, msgObj.action_receipt_digest)
     }
+    else delete proof.actionproof;
     
     let blockID = (await axios.get(`${process.env.LIGHTPROOF_API}?blocks=${msgObj.block_to_prove}`)).data[0].id;
     let lastProvenBlockNodes = (await axios.get(`${process.env.LIGHTPROOF_API}?blocks=${msgObj.last_proven_block}`)).data[0].nodes;
@@ -124,12 +123,12 @@ function handleLightProof(msgObj, ws){
       ws.send(JSON.stringify({ type: "proof", query: msgObj, proof }));
     }
     else{
-      console.log("blockFromLP",blockFromLP)
+      // console.log("blockFromLP",blockFromLP)
       console.log("proof.blockproof.bmproofpath",proof.blockproof.bmproofpath);
-      ws.send(JSON.stringify({type:"error", error: "bftproof verification failed, contact proof socket admin", query:response.query}));
+      ws.send(JSON.stringify({type:"error", error: "bftproof verification failed, contact proof socket admin", query: JSON.stringify(msgObj)}));
     }
    
-    resolve();
+    resolve(null);
   })
 }
 
@@ -162,25 +161,30 @@ async function handleGetDbStatus(ws){
 }
 
 
-function checkValidBlockRange(blockNum){
-  return new Promise(async resolve=>{
-    try{
-      blockNum = parseInt(blockNum);
-      const { minBlockToProve,lastBlock, lib, firstBlock } = (await axios(`${process.env.LIGHTPROOF_API}/status`)).data;
-      if(!minBlockToProve) minBlockToProve = firstBlock;
-      if (blockNum < minBlockToProve || blockNum > lastBlock){
-        resolve({ available: false, error:  `Attempting to prove a block (#${blockNum}) that is outside proveable range in lightproof-db (${minBlockToProve} -> ${lastBlock} )` });
-      } else resolve({ available: true })
-    }catch(ex){
-      resolve({
-        available: false,
-        error:  `Error fetching status of lightproof`
-      });
-    }
-  })
+async function checkValidBlockRange(blockNum){
+  // interface ValidRange {
+    // available: boolean;
+    // error: any;
+  // }
+  // return new Promise(async resolve=>{
+  try{
+    blockNum = parseInt(blockNum);
+    let { minBlockToProve,lastBlock, firstBlock } = (await axios(`${process.env.LIGHTPROOF_API}/status`)).data;
+    if(!minBlockToProve) minBlockToProve = firstBlock;
+
+    if (blockNum < minBlockToProve || blockNum > lastBlock)
+      return({ available: false, error:  `Attempting to prove a block (#${blockNum}) that is outside proveable range in lightproof-db (${minBlockToProve} -> ${lastBlock} )` });
+    else return({ available: true, error:false })
+  }catch(ex){
+    return({
+      available: false,
+      error:  `Error fetching status of lightproof`
+    });
+  }
+
 }
 
-module.exports = {
+export {
   handleLightProof,
   handleHeavyProof,
   handleGetBlockActions,

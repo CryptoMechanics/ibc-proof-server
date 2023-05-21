@@ -5,8 +5,9 @@
   "bin": "index.js",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "build": "pkg ."
+    "start": "ts-node ./index.ts",
+    "build": "pkg .",
+    "compile": "tsc *.ts"
   },
   "author": "0rigin.one",
   "license": "MIT",
@@ -28,7 +29,11 @@
     "utf-8-validate": "^5.0.9"
   },
   "devDependencies": {
-    "pkg": "^5.8.0"
+    "@types/node": "^20.2.1",
+    "@types/ws": "^8.5.4",
+    "pkg": "^5.8.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4"
   },
   "pkg": {
     "assets": [
