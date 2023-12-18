@@ -1,7 +1,6 @@
 const SHIP = require('./ship');
 const { getActionProof } = require("./ibcFunctions")
 const axios = require('axios');
-const hex64 = require('hex64');
 //Digest
 const getShipIrreversibleBlock = async start_block_num =>{
   return new Promise(resolve=>{
@@ -86,7 +85,10 @@ const getShipHeavyProof = req => new Promise((resolve) => {
       let extensions = [];
       for (var extension of block.header.header_extensions){
         const first = extension.type || 0;
-        const second = hex64.toHex(extension.data);
+        let second = '';
+        for (let i = 0; i < Object.keys(extension.data).length; i++) {
+          second += extension.data[i].toString(16).padStart(2, '0');
+        }
         extensions.push({first, second});
       }
       header.header_extensions = extensions;

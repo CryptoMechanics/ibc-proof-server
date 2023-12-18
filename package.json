@@ -1,6 +1,6 @@
 {
   "name": "ibc-proof-server",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "IBC Proof Server generates and serves heavy and light proofs for actions and schedules.",
   "bin": "index.js",
   "main": "index.js",

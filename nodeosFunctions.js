@@ -1,7 +1,6 @@
 const { getActionProof, getBaseActionDigest, getDataDigest } = require("./ibcFunctions")
 const crypto = require("crypto");
 const axios = require('axios');
-const hex64 = require('hex64');
 const sleep = s => new Promise(resolve=>setTimeout(resolve, s*1000));
 
 const getNodeosIrreversibleBlock = block_num => fetchBlock(block_num);
@@ -206,7 +205,10 @@ const formatBlockRes = res =>{
   let extensions = [];
   for (var extension of res.data.header_extensions){
     const first = extension.type || 0;
-    const second = hex64.toHex(extension.data);
+    let second = '';
+    for (let i = 0; i < Object.keys(extension.data).length; i++) {
+      second += extension.data[i].toString(16).padStart(2, '0');
+    }
     extensions.push({first, second});
   }
   header.header_extensions = extensions;
