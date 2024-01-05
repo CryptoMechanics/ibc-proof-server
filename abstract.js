@@ -60,10 +60,9 @@ const getTxs = async res =>{
         act.action_receipt_digest = action_receipt_digest;
         act.transactionId = tx.id;
         delete act.act
-        delete act.action.data
         traces.push(act)
       }
-      //sort traces by global sequenece since SHIP doesnt sort them
+      //sort traces by global sequence since SHIP doesnt sort them
       traces.sort((a,b)=> a.receipt.global_sequence > b.receipt.global_sequence? 1 :-1);
       txs.push(traces)
     }
