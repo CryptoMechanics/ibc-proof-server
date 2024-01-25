@@ -54,6 +54,7 @@ function getShipReceiptDigests(block_to_prove, action_receipt_digest){
   var transactions = block_to_prove.transactions;
   for (traces of transactions){
     for (trace of traces.action_traces.sort((a,b)=> a.receipt.global_sequence > b.receipt.global_sequence? 1 :-1)){
+      if (!trace || !trace.receipt) continue;
       var receipt_digest = getReceiptDigest(trace.receipt);
       //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
       if (receipt_digest === action_receipt_digest && trace.return_value) action_return_value = trace.return_value.toString()
@@ -85,6 +86,7 @@ function getFirehoseReceiptDigests(block_to_prove, action_receipt_digest){
 
   for (traces of transactions){
     for (trace of traces){
+      if (!trace || !trace.receipt) continue;
       trace.action.rawData = hex64.toHex(trace.action.rawData);
       var receipt_digest = getReceiptDigest(trace.receipt);
       //if this is the trace of the action we are trying to prove, assign the action_return_value from trace result
